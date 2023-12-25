@@ -22,3 +22,9 @@ to gain time, and give a minimum viable product, I overlooked several things:
 - Rust
 - Socketio
 - React for the frontend
+
+### Notes
+
+- broadcasting
+
+see personal.md for more
