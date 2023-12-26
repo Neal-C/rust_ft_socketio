@@ -1,5 +1,7 @@
 use axum::routing::get;
 use socketioxide::{extract::SocketRef, SocketIo};
+
+use tower_http::cors::CorsLayer;
 use tracing::info;
 use tracing_subscriber::FmtSubscriber;
 
@@ -14,11 +16,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     io.ns("/", on_connect);
 
-    let app: axum::Router<_> = axum::Router::<_>::new()
+    let cors = CorsLayer::permissive();
+
+    let app = axum::Router::<_>::new()
         .route("/", get(|| async { "heartbeat\n" }))
+        .layer(cors)
         .layer(socketio_layer);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+        .await
+        .unwrap();
     axum::serve(listener, app).await.unwrap();
 
     info!("Server started");
