@@ -1,6 +1,9 @@
 use axum::routing::get;
-use serde::Deserialize;
-use socketioxide::{extract::{SocketRef, Data as SocketioxideData}, SocketIo};
+use serde::{Deserialize, Serialize};
+use socketioxide::{
+    extract::{Data as SocketioxideData, SocketRef},
+    SocketIo,
+};
 
 use tower_http::cors::CorsLayer;
 use tracing::info;
@@ -12,12 +15,39 @@ struct MessageIn {
     text: String,
 }
 
+#[derive(Debug, Serialize)]
+struct MessageOut {
+    text: String,
+    user: String,
+    date: chrono::DateTime<chrono::Utc>,
+}
 async fn on_connect(socket: SocketRef) {
     info!("socket connected {}", socket.id);
 
-    socket.on("message", |_: SocketRef, SocketioxideData::<MessageIn>(data) | {
-        info!("Received message {:?}", data)
-    })
+    socket.on(
+        "join",
+        |socket_ref: SocketRef, SocketioxideData::<String>(room)| {
+            info!("Received join event {:?}", room);
+
+            let _ = socket_ref.leave_all();
+            let _ = socket_ref.join(room);
+        },
+    );
+
+    socket.on(
+        "message",
+        |socket_ref: SocketRef, SocketioxideData::<MessageIn>(data)| {
+            info!("Received message {:?}", data);
+
+            let response = MessageOut {
+                text: data.text,
+                user: format!("anonymous-{}", socket_ref.id),
+                date: chrono::Utc::now(),
+            };
+
+            let _ = socket_ref.within(data.room).emit("message", response);
+        },
+    )
 }
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
