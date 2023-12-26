@@ -1,3 +1,4 @@
+use axum::extract::State as AxumState;
 use axum::routing::get;
 use serde::{Deserialize, Serialize};
 use socketioxide::{
@@ -21,6 +22,11 @@ struct MessageOut {
     user: String,
     date: chrono::DateTime<chrono::Utc>,
 }
+
+async fn handler_hello(AxumState(io): AxumState<SocketIo>) {
+    let _ = io.emit("hello", "goodbye");
+}
+
 async fn on_connect(socket: SocketRef) {
     info!("socket connected {}", socket.id);
 
@@ -61,6 +67,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = axum::Router::<_>::new()
         .route("/", get(|| async { "heartbeat\n" }))
+        .route("/hello", get(handler_hello))
+        .with_state(io)
         .layer(socketio_layer)
         .layer(cors);
     // Bottom-up
