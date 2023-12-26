@@ -1,8 +1,10 @@
+mod state;
+
 use axum::extract::State as AxumState;
 use axum::routing::get;
 use serde::{Deserialize, Serialize};
 use socketioxide::{
-    extract::{Data as SocketioxideData, SocketRef},
+    extract::{Data as SocketioxideData, SocketRef, State as SocketioxideState},
     SocketIo,
 };
 
@@ -16,11 +18,9 @@ struct MessageIn {
     text: String,
 }
 
-#[derive(Debug, Serialize)]
-struct MessageOut {
-    text: String,
-    user: String,
-    date: chrono::DateTime<chrono::Utc>,
+#[derive(Serialize)]
+struct Messages {
+    messages: Vec<state::Message>,
 }
 
 async fn handler_hello(AxumState(io): AxumState<SocketIo>) {
@@ -32,24 +32,32 @@ async fn on_connect(socket: SocketRef) {
 
     socket.on(
         "join",
-        |socket_ref: SocketRef, SocketioxideData::<String>(room)| {
+        |socket_ref: SocketRef,
+         SocketioxideData::<String>(room),
+         msg_store: SocketioxideState<state::MessageStore>| async move {
             info!("Received join event {:?}", room);
 
             let _ = socket_ref.leave_all();
-            let _ = socket_ref.join(room);
+            let _ = socket_ref.join(room.clone());
+            let messages = msg_store.get(&room).await;
+            let _ = socket_ref.emit("messages", Messages { messages });
         },
     );
 
     socket.on(
         "message",
-        |socket_ref: SocketRef, SocketioxideData::<MessageIn>(data)| {
+        |socket_ref: SocketRef,
+         SocketioxideData::<MessageIn>(data),
+         msg_store: SocketioxideState<state::MessageStore>| async move {
             info!("Received message {:?}", data);
 
-            let response = MessageOut {
+            let response = state::Message {
                 text: data.text,
                 user: format!("anonymous-{}", socket_ref.id),
                 date: chrono::Utc::now(),
             };
+
+            msg_store.insert(&data.room, response.clone()).await;
 
             let _ = socket_ref.within(data.room).emit("message", response);
         },
@@ -59,7 +67,9 @@ async fn on_connect(socket: SocketRef) {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::subscriber::set_global_default(FmtSubscriber::default())?;
 
-    let (socketio_layer, io) = SocketIo::new_layer();
+    let message_store = state::MessageStore::default();
+
+    let (socketio_layer, io) = SocketIo::builder().with_state(message_store).build_layer();
 
     io.ns("/", on_connect);
 
