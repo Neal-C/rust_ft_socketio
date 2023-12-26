@@ -20,8 +20,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = axum::Router::<_>::new()
         .route("/", get(|| async { "heartbeat\n" }))
-        .layer(cors)
-        .layer(socketio_layer);
+        .layer(socketio_layer)
+        .layer(cors);
+    // Bottom-up
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
