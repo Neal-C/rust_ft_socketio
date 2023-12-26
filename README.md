@@ -1,6 +1,7 @@
 # A Rust Playground
 ## Chill, this is not meant for production. it is not "prod ready"
- 
+
+this has a front-end here: https://github.com/Neal-C/react_ft_socketio 
 
 ### Technical & design choices
 
