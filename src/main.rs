@@ -1,12 +1,23 @@
 use axum::routing::get;
-use socketioxide::{extract::SocketRef, SocketIo};
+use serde::Deserialize;
+use socketioxide::{extract::{SocketRef, Data as SocketioxideData}, SocketIo};
 
 use tower_http::cors::CorsLayer;
 use tracing::info;
 use tracing_subscriber::FmtSubscriber;
 
+#[derive(Debug, Deserialize)]
+struct MessageIn {
+    room: String,
+    text: String,
+}
+
 async fn on_connect(socket: SocketRef) {
-    info!("socket connected {}", socket.id)
+    info!("socket connected {}", socket.id);
+
+    socket.on("message", |_: SocketRef, SocketioxideData::<MessageIn>(data) | {
+        info!("Received message {:?}", data)
+    })
 }
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
